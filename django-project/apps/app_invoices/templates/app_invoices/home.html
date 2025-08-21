@@ -63,7 +63,7 @@
                             {{ item.total_one_product | intcomma }} USD <br>
                         {% endfor %}
                     </td>
-                    <td class="w3-border" style="text-align: center;">{{ invoice.quotation.invoice.due_date|date:'d-m-Y' }}</td>
+                    <td class="w3-border" style="text-align: center;">{{ invoice.due_date|date:'d-m-Y' }}</td>
                     <td class="w3-border">
                         <a href="#" class="w3-button w3-round-large w3-hover-shadow w3-green w3-hover-blue w3-padding-small w3-margin-small" style="width: 80px;">ລາຍລະອຽດ</a>
                         <a href="#" class="w3-button w3-round-large w3-hover-shadow w3-red w3-hover-deep-orange w3-padding-small w3-margin-small" style="width: 80px;">ລືບ</a>

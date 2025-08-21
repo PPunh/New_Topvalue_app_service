@@ -22,6 +22,7 @@ from .signals import generate_invoice_number
 from .models import InvoiceModel
 from .forms import InvoiceModelForm
 from apps.app_quotations.models import QuotationInformationModel
+from apps.app_employee.models import EmployeesModel
 
 
 
@@ -52,30 +53,53 @@ class InvoiceListView(LoginRequiredMixin, ListView):
 
 # Create Invoice 
 @method_decorator(ratelimit(key='header:X-Forwarded-For', rate=settings.RATE_LIMIT, block=True), name='dispatch')
-class CreateInvoice(View):
+class CreateInvoice(LoginRequiredMixin, View):
     template_name = 'app_invoices/create_invoice.html'
 
     def get(self, request, *args, **kwargs):
         quotation_id = kwargs.get('invoice_id')
         quotation = get_object_or_404(QuotationInformationModel, quotation_id=quotation_id)
+        additional_expense = quotation.additional_payments.first()  # ดึงตัวแรก
+
         form = InvoiceModelForm(initial={
             'quotation': quotation,
             'issue_date': quotation.start_date,
             'due_date': quotation.end_date,
         })
-        return render(request, self.template_name, {'form': form, 'quotation': quotation})
+
+        context = {
+            'form': form,
+            'quotation': quotation,
+            'additional_expense': additional_expense,
+            'title': 'ອອກໃບເກັບເງິນ'
+        }
+        return render(request, self.template_name, context)
 
     def post(self, request, *args, **kwargs):
         quotation_id = kwargs.get('invoice_id')
         quotation = get_object_or_404(QuotationInformationModel, quotation_id=quotation_id)
+        additional_expense = quotation.additional_payments.first()
+
         form = InvoiceModelForm(request.POST, request.FILES)
         if form.is_valid():
             invoice = form.save(commit=False)
             invoice.quotation = quotation
-            invoice.created_by = request.user
+
+            # แปลง request.user เป็น EmployeesModel
+            employee = EmployeesModel.objects.get(user=request.user)
+            invoice.created_by = employee
+
             invoice.save()
             return redirect('app_invoices:home')
-        return render(request, self.template_name, {'form': form, 'quotation': quotation})
+
+        context = {
+            'form': form,
+            'quotation': quotation,
+            'additional_expense': additional_expense,
+            'title': 'ອອກໃບເກັບເງິນ'
+        }
+        return render(request, self.template_name, context)
+
     
 
 # One Invoice Details View
