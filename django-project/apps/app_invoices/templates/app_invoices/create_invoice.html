@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% load static %}
+{% load widget_tweaks %}
+
+{% block main-content %}
+<div class="w3-container w3-animate-left" style="margin-top: 100px;">
+
+    {% if invoice_instance %}
+        <h2 class="w3-text-blue lao-noto"> ແກ້ໄຂໃບເກັບເງິນ </h2>
+    {% else %}
+        <h2 class="w3-text-blue lao-noto"> ສ້າງໃບເກັບເງິນໃໝ່ </h2>
+    {% endif %}
+    
+    <form method="post" enctype="multipart/form-data" class="w3-container w3-light-grey w3-text-blue w3-margin-top">
+        {% csrf_token %}
+        
+        <!-- ======================== Invoice Main Form ======================== -->
+        <div class="form-section w3-padding w3-margin-bottom w3-white w3-card-2 w3-round-large">
+            <h3 class="w3-text-blue lao-noto">ຂໍ້ມູນໃບເກັບເງິນ</h3>
+            <div class="w3-row-padding">
+                {% for field in form.visible_fields %}
+                    <div class="w3-col l2 m6 s12 w3-padding">
+                        <label class="w3-text-dark">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.errors %}
+                            <div class="w3-text-red">{{ field.errors }}</div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- ======================== Customer Info (from Quotation) ======================== -->
+        <div class="form-section w3-padding w3-margin-bottom w3-white w3-card-2 w3-round-large">
+            <h3 class="w3-text-blue lao-noto">ຂໍ້ມູນລູກຄ້າ</h3>
+            <div class="w3-row-padding">
+                <p><strong>ບໍລິສັດ:</strong> {{quotation.customer.company_name }}</p>
+                <p><strong>ຜູ້ຕິດຕໍ່:</strong> {{quotation.customer.contact_person_name }}</p>
+                <p><strong>ເບີໂທ:</strong> {{quotation.customer.phone_number }}</p>
+                <p><strong>Email:</strong> {{quotation.customer.email }}</p>
+            </div>
+        </div>
+        <button type="submit" class="w3-button w3-green w3-round-large w3-margin-bottom" style="width: 350px;">ບັນທຶກ</button>
+    </form>
+</div>
+
+{% endblock %}
