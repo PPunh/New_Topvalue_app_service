@@ -53,20 +53,73 @@ class InvoiceListView(LoginRequiredMixin, ListView):
 
 # Create Invoice 
 @method_decorator(ratelimit(key='header:X-Forwarded-For', rate=settings.RATE_LIMIT, block=True), name='dispatch')
+# class CreateInvoice(LoginRequiredMixin, View):
+#     template_name = 'app_invoices/create_invoice.html'
+
+#     def get(self, request, *args, **kwargs):
+#         quotation_id = kwargs.get('invoice_id')
+#         quotation = get_object_or_404(QuotationInformationModel, quotation_id=quotation_id)
+#         additional_expense = quotation.additional_payments.first()  # ดึงตัวแรก
+
+#         form = InvoiceModelForm(initial={
+#             'quotation': quotation,
+#             'issue_date': quotation.start_date,
+#             'due_date': quotation.end_date,
+#         })
+
+#         context = {
+#             'form': form,
+#             'quotation': quotation,
+#             'additional_expense': additional_expense,
+#             'title': 'ອອກໃບເກັບເງິນ'
+#         }
+#         return render(request, self.template_name, context)
+
+#     def post(self, request, *args, **kwargs):
+#         quotation_id = kwargs.get('invoice_id')
+#         quotation = get_object_or_404(QuotationInformationModel, quotation_id=quotation_id)
+#         additional_expense = quotation.additional_payments.first()
+
+#         form = InvoiceModelForm(request.POST, request.FILES)
+#         if form.is_valid():
+#             invoice = form.save(commit=False)
+#             invoice.quotation = quotation
+
+#             # แปลง request.user เป็น EmployeesModel
+#             employee = EmployeesModel.objects.get(user=request.user)
+#             invoice.created_by = employee
+
+#             invoice.save()
+#             return redirect('app_invoices:home')
+
+#         context = {
+#             'form': form,
+#             'quotation': quotation,
+#             'additional_expense': additional_expense,
+#             'title': 'ອອກໃບເກັບເງິນ'
+#         }
+#         return render(request, self.template_name, context)
+
+@method_decorator(
+    ratelimit(key='header:X-Forwarded-For', rate=settings.RATE_LIMIT, block=True), 
+    name='dispatch'
+)
 class CreateInvoice(LoginRequiredMixin, View):
+    login_url = 'users:login'
     template_name = 'app_invoices/create_invoice.html'
 
     def get(self, request, *args, **kwargs):
         quotation_id = kwargs.get('invoice_id')
         quotation = get_object_or_404(QuotationInformationModel, quotation_id=quotation_id)
-        additional_expense = quotation.additional_payments.first()  # ดึงตัวแรก
+        additional_expense = quotation.additional_payments.first()
 
-        form = InvoiceModelForm(initial={
-            'quotation': quotation,
-            'issue_date': quotation.start_date,
-            'due_date': quotation.end_date,
-        })
-
+        form = InvoiceModelForm(
+            initial={
+                'quotation': quotation,
+                'issue_date': quotation.start_date,
+                'due_date': quotation.end_date
+            }
+        )
         context = {
             'form': form,
             'quotation': quotation,
@@ -81,17 +134,53 @@ class CreateInvoice(LoginRequiredMixin, View):
         additional_expense = quotation.additional_payments.first()
 
         form = InvoiceModelForm(request.POST, request.FILES)
+
         if form.is_valid():
             invoice = form.save(commit=False)
             invoice.quotation = quotation
-
-            # แปลง request.user เป็น EmployeesModel
             employee = EmployeesModel.objects.get(user=request.user)
             invoice.created_by = employee
 
-            invoice.save()
+            # if invoice of quotation existing already
+            existing_invoice = InvoiceModel.objects.filter(quotation=quotation).first()
+
+            if existing_invoice and not request.POST.get('confirm_update'):
+                # Notification to User
+                messages.warning(
+                    request, 
+                    "ມີໃບເກັບເງິນຂອງໃບສະເຫນີລາຄານີ້ແລ້ວ, ຕ້ອງການອັບເດດຫລືບໍ່?"
+                )
+                context = {
+                    'form': form,
+                    'quotation': quotation,
+                    'additional_expense': additional_expense,
+                    'title': 'ຢືນຢັນການອັບເດດໃບເກັບເງິນ',
+                    'confirm_update': True,
+                    'existing_invoice': existing_invoice
+                }
+                return render(request, self.template_name, context)
+
+            if existing_invoice and request.POST.get('confirm_update'):
+                # If confirmed_update invoice
+                # Update invoice
+                existing_invoice.issue_date = invoice.issue_date
+                existing_invoice.due_date = invoice.due_date
+                existing_invoice.created_by = invoice.created_by
+                
+                if invoice.invoice_signatured:
+                    existing_invoice.invoice_signatured = invoice.invoice_signatured
+
+                if invoice.customer_payment:
+                    existing_invoice.customer_payment = invoice.customer_payment
+                    
+                existing_invoice.save()
+            else:
+                # create new invoice
+                invoice.save()
+
             return redirect('app_invoices:home')
 
+        # if form is not valid will be redirect to render
         context = {
             'form': form,
             'quotation': quotation,
@@ -100,7 +189,6 @@ class CreateInvoice(LoginRequiredMixin, View):
         }
         return render(request, self.template_name, context)
 
-    
 
 # One Invoice Details View
 class InvoiceDetailsView(LoginRequiredMixin, DetailView):
