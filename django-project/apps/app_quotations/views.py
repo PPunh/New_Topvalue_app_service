@@ -8,6 +8,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.staticfiles import finders
+from django.db.models import Q
 from django.db import transaction
 from django.http import HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
@@ -45,25 +46,41 @@ class HomeView(LoginRequiredMixin, ListView):
     template_name = 'app_quotations/home.html'
     context_object_name = 'all_quotations'
 
-    #Search / Filter Function
     def get_queryset(self):
         queryset = super().get_queryset()
+        #Search / Filter Function
         search = self.request.GET.get('search', '')
         if search:
             queryset = queryset.filter(
-                quotation_id__icontains = search
-            ) | queryset.filter(
-                customer__company_name__icontains = search
-            ) | queryset.filter(
-                customer__contact_person_name__icontains = search
+                Q(quotation_id__icontains=search) |
+                Q(customer__company_name__icontains=search) |
+                Q(customer__contact_person_name__icontains=search)
             )
+        # Order by Status
+        status = self.request.GET.get('status', '')
+        if status:
+            queryset = queryset.filter(status = status)
+        
+        # Order by monthly
+        start_date = self.request.GET.get('start_date', '')
+        end_date = self.request.GET.get('end_date', '')
+        if start_date and end_date:
+            queryset = queryset.filter(start_date__range=[start_date, end_date])
+        elif start_date:
+            queryset = queryset.filter(start_date__gte=start_date)
+        elif end_date:
+            queryset = queryset.filter(start_date__lte=end_date)
+
         return queryset
+        
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['search'] = self.request.GET.get('search', '')
         context['title'] = 'ລາຍການໃບສະເຫນີລາຄາ'
+        context['status_list'] = QuotationInformationModel.Status.choices
         return context
-    
+
+
 # # ModelFormMixins + View
 # @method_decorator(ratelimit(key='header:X-Forwarded-For', rate=settings.RATE_LIMIT, block=True), name='dispatch')
 # class QuotationCreateUpdateView(LoginRequiredMixin, View):

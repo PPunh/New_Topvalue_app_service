@@ -8,6 +8,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.staticfiles import finders
+from django.db.models import Q
 from django.db import transaction
 from django.http import HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
@@ -38,21 +39,42 @@ class InvoiceListView(LoginRequiredMixin, ListView):
     #Search / Filter Function
     def get_queryset(self):
         queryset = super().get_queryset()
+        # Search 
         search = self.request.GET.get('search', '')
         if search:
             queryset = queryset.filter(
-                invoice_id__icontains = search
+                Q(invoice_id__icontains=search) |
+                Q(quotation__customer__company_name__icontains=search) |
+                Q(quotation__customer__contact_person_name__icontains=search) |
+                Q(quotation__quotation_id__icontains=search)
             )
+        # Order by Status
+        status = self.request.GET.get('status', '')
+        if status:
+            queryset = queryset.filter(status=status)
+
+        # Order by Monthly
+        start_date = self.request.GET.get('start_date', '')
+        end_date = self.request.GET.get('end_date', '')
+
+        if start_date and end_date:
+            queryset = queryset.filter(issue_date__range=[start_date, end_date])
+        elif start_date:
+            queryset = queryset.filter(issue_date__gte=start_date)
+        elif end_date:
+            queryset = queryset.filter(issue_date__lte=end_date)
+        # Return Queryset
         return queryset
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['search'] = self.request.GET.get('search', '')
         context['title'] = 'ລາຍການໃບເກັບເງິນທັງຫມົດ'
+        context['status_list'] = InvoiceModel.InvoiceStatus.choices
         return context
 
 # Create Invoice 
-@method_decorator(ratelimit(key='header:X-Forwarded-For', rate=settings.RATE_LIMIT, block=True), name='dispatch')
+# @method_decorator(ratelimit(key='header:X-Forwarded-For', rate=settings.RATE_LIMIT, block=True), name='dispatch')
 # class CreateInvoice(LoginRequiredMixin, View):
 #     template_name = 'app_invoices/create_invoice.html'
 
@@ -172,7 +194,7 @@ class CreateInvoice(LoginRequiredMixin, View):
 
                 if invoice.customer_payment:
                     existing_invoice.customer_payment = invoice.customer_payment
-                    
+
                 existing_invoice.save()
             else:
                 # create new invoice
@@ -198,3 +220,10 @@ class InvoiceDetailsView(LoginRequiredMixin, DetailView):
     get_context_data = 'one_invoice'
     slug_field = 'invoice_id'
     slug_url_kwarg = 'invoice_id'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = f'ລາຍລະອຽດຂອງໃບເກັບເງິນ{self.invoice_id}'
+        # invoice = self.object
+        # item = invoice.quotation.items.all()
+        return context

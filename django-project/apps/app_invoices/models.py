@@ -4,6 +4,7 @@ from django.conf import settings
 from decimal import Decimal
 from apps.app_quotations.models import QuotationInformationModel
 from apps.app_employee.models import EmployeesModel
+from apps.app_customers.models import CustomersModel
 
 
 #Generate invoice number
